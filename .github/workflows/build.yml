@@ -1,0 +1,44 @@
+name: build-micontrol
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MSVC dev environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Build protobuf (3.17.x)
+        shell: cmd
+        run: |
+          cd MIControlLib\google
+          call protobuf.cmd
+
+      - name: Build MIControl solution (Release x64)
+        shell: cmd
+        run: msbuild MIControl.sln /p:Configuration=Release /p:Platform=x64 /m /verbosity:minimal
+
+      - name: List build outputs
+        shell: pwsh
+        run: |
+          Write-Host "=== все exe/dll в Release ==="
+          Get-ChildItem -Recurse -Include *.exe,*.dll |
+            Where-Object { $_.FullName -match '\\x64\\Release\\' } |
+            Select-Object FullName
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MIControl-Release-x64
+          path: |
+            **/x64/Release/MIControl.exe
+            **/x64/Release/MIControlSvc.dll
+            **/x64/Release/*.dll
+          if-no-files-found: warn
